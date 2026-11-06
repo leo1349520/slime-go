@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>슬라임 GO</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Segoe UI', system 'Apple SD Gothic Neo', sans-serif;
+    background: #0a1628;
+    color: #fff;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    touch-action: none;
+  }
+  #app {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  #header {
+    background: linear-gradient(180deg, #1a237e, #0d47a1);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  #header h1 {
+    font-size: 1.25rem;
+    color: #ffd700;
+    text-shadow: 0 0 8px rgba(255,215,0,0.5);
+  }
+  #stats {
+    font-size: 0.85rem;
+    display: flex;
+    gap: 12px;
+  }
+  #stats span { background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 12px; }
+  #map-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #1b5e20;
+  }
+  #map-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #gps-status {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    z-index: 20;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  #gps-status.ok { border-color: #4caf50; color: #a5d6a7; }
+  #gps-status.err { border-color: #f44336; color: #ef9a9a; }
+  #bottom-bar {
+    background: linear-gradient(0deg, #0d1b2a, #1b2838);
+    padding: 12px 16px 18px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 50;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.4);
+  }
+  .btn {
+    background: linear-gradient(180deg, #3949ab, #1a237e);
+    border: none;
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    min-width: 90px;
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: scale(0.95); }
+  .btn.primary { background: linear-gradient(180deg, #ffc107, #ff8f00); color: #222; }
+  .btn:disabled { opacity: 0.5; }
+  #encounter {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, #1a237e 0%, #0a0a1a 70%);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #encounter.active { display: flex; }
+  #monster-display {
+    width: 200px;
+    height: 200px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  #monster-canvas {
+    width: 100%;
+    height: 100%;
+  }
+  #encounter-info {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  #encounter-info h2 { color: #ffd700; font-size: 1.5rem; margin-bottom: 6px; }
+  #encounter-info p { color: #bbb; font-size: 0.95rem; }
+  #catch-area {
+    width: 100%;
+    max-width: 320px;
+    height: 180px;
+    position: relative;
+    margin-bottom: 16px;
+  }
+  #ball {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff 0%, #e0e0e0 40%, #bdbdbd 100%);
+    border: 3px solid #333;
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    touch-action: none;
+  }
+  #ball::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #d32f2f;
+    transform: translateY(-50%);
+  }
+  #ball::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 3px solid #333;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+  }
+  #throw-hint {
+    color: #aaa;
+    font-size: 0.85rem;
+    margin-top: 8px;
+  }
+  #catch-result {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-shadow: 0 0 20px currentColor;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 20;
+    pointer-events: none;
+  }
+  #catch-result.show { opacity: 1; }
+  #collection {
+    position: absolute;
+    inset: 0;
+    background: #0a1628;
+    z-index: 90;
+    display: none;
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  #collection.active { display: flex; }
+  #collection h2 { color: #ffd700; margin-bottom: 12px; text-align: center; }
+  #collection-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+  }
+  .col-item {
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 12px 8px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .col-item .icon { font-size: 2rem; margin-bottom: 4px; }
+  .col-item .name { font-size: 0.85rem; color: #ffd700; }
+  .col-item .meta { font-size: 0.75rem; color: #aaa; margin-top: 2px; }
+  .close-btn {
+    margin-top: 16px;
+    align-self: center;
+  }
+  #nearby {
+    position: absolute;
+    bottom: 90px;
+    left: 10px;
+    right: 10px;
+    max-height: 120px;
+    overflow-y: auto;
+    z-index: 30;
+    pointer-events: none;
+  }
+  .nearby-item {
+    background: rgba(0,0,0,0.7);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    border-left: 4px solid #4caf50;
+    pointer-events: auto;
+  }
+  .nearby-item.far { border-left-color: #ff9800; }
+  .nearby-item.veryfar { border-left-color: #f44336; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <h1>🟢 슬라임 GO</h1>
+    <div id="stats">
+      <span id="ball-count">볼 30</span>
+      <span id="caught-count">잡은 수 0</span>
+    </div>
+  </div>
+  <div id="map-container">
+    <canvas id="map-canvas"></canvas>
+    <div id="gps-status">GPS 찾는 중...</div>
+    <div id="nearby"></div>
+  </div>
+  <div id="bottom-bar">
+    <button class="btn" id="btn-collection">도감</button>
+    <button class="btn primary" id="btn-spawn">주변 탐색</button>
+    <button class="btn" id="btn-center">내 위치</button>
+  </div>
+  <div id="encounter">
+    <div id="monster-display">
+      <canvas id="monster-canvas" width="200" height="200"></canvas>
+    </div>
+    <div id="encounter-info">
+      <h2 id="enc-name">야생 슬라임</h2>
+      <p id="enc-desc">레벨 5 · 일반</p>
+    </div>
+    <div id="catch-area">
+      <div id="ball"></div>
+      <div id="catch-result"></div>
+    </div>
+    <p id="throw-hint">볼을 위로 스와이프해서 던져!</p>
+    <button class="btn" id="btn-run" style="margin-top:12px;">도망치기</button>
+  </div>
+  <div id="collection">
+    <h2>📖 슬라임 도감</h2>
+    <div id="collection-list"></div>
+    <button class="btn close-btn" id="btn-close-col">닫기</button>
+  </div>
+</div>
+<script>
+// Full game code is in the repository. For complete playable version, clone or use GitHub Pages after enabling it.
+console.log('Slime GO loaded');
+</script>
+</body>
+</html>
